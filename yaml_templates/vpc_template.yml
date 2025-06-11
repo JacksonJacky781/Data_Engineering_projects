@@ -1,0 +1,139 @@
+   AWSTemplateFormatVersion: '2010-09-09'
+Description: VPC Template for PTDE2403JACMOT-Extract
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: PTDE2403JACMOT-Extract
+    Description: Environment name prefix for resources
+  VpcCIDR:
+    Type: String
+    Default: 192.168.0.0/16
+    Description: IPv4 CIDR block for the VPC
+  DataCenterPublicSubnetCIDR:
+    Type: String
+    Default: 192.168.10.0/24
+    Description: IPv4 CIDR block for the public subnet
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  DataCenterPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref DataCenterPublicSubnetCIDR
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName} Data Center Subnet"
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName} Public Routes"
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  DataCenterPublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DataCenterPublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  WindowsInstanceSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for RDP access
+      GroupName: !Sub "${EnvironmentName}-WindowsInstanceSG"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3389
+          ToPort: 3389
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName} WindowsInstanceSG"
+
+  FileServerSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for file server SSH access
+      GroupName: !Sub "${EnvironmentName}-FileServerSG"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 192.168.10.0/24
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName} FileServerSG"
+
+  FileGatewaySG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for file gateway access
+      GroupName: !Sub "${EnvironmentName}-FileGatewaySG"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 1
+          ToPort: 65534
+          CidrIp: 192.168.0.0/16
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName} FileGatewaySG"
+
+Outputs:
+  VPCId:
+    Description: VPC ID
+    Value: !Ref VPC
+
+  PublicSubnetId:
+    Description: Public Subnet ID
+    Value: !Ref DataCenterPublicSubnet
+
+  WindowsInstanceSecurityGroupId:
+    Description: Windows Instance Security Group ID
+    Value: !Ref WindowsInstanceSG
+
+  FileServerSecurityGroupId:
+    Description: File Server Security Group ID
+    Value: !Ref FileServerSG
+
+  FileGatewaySecurityGroupId:
+    Description: File Gateway Security Group ID
+    Value: !Ref FileGatewaySG

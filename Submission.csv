@@ -1,0 +1,2 @@
+Name,Surname,File Gateway S3 Bucket Name,Fileshare Alert SNS Topic ARN,Delivery Stream S3 Bucket Name/URL,Streaming SNS Topic ARN,,
+Jackson,Mothapo,PTDE2403JACMOT-filegateway,arn:aws:sns:eu-west-1:445492270995:PTDE2403JACMOT-Fileshare-alert,ptde2403jacksonmothapo-deliverystream-s3,arn:aws:sns:eu-west-1:445492270995:PTDE2403JACMOT-streaming-sns-topic,,

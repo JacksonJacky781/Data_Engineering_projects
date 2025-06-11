@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Windows Instance Template for PTDE2403JACMOT-Extract
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance.
+
+  VPC:
+    Type: AWS::EC2::VPC::Id
+    Description: The VPC ID where the instance will be launched.
+
+  Subnet:
+    Type: AWS::EC2::Subnet::Id
+    Description: The public subnet ID where the instance will be launched.
+
+  SecurityGroupIds:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: List of security group IDs for the instance.
+
+  LatestWindowsAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-windows-latest/Windows_Server-2019-English-Full-Base
+    Description: The latest Windows AMI ID.
+
+Resources:
+  WindowsInstanceRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Delete
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+
+  WindowsInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref WindowsInstanceRole
+      Path: /
+
+  WindowsInstanceRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "Windows-client-${AWS::StackName}"
+      Roles:
+        - !Ref WindowsInstanceRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:Get*
+              - s3:List*
+            Resource: '*'
+    DeletionPolicy: Delete
+
+  WindowsInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestWindowsAmiId
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      SubnetId: !Ref Subnet
+      SecurityGroupIds: !Ref SecurityGroupIds
+      IamInstanceProfile: !Ref WindowsInstanceProfile
+      Tags:
+        - Key: Name
+          Value: !Sub "PTDE2403JACMOT-Extract-Windows-Instance"
+
+Outputs:
+  WindowsInstanceId:
+    Description: The ID of the Windows EC2 instance
+    Value: !Ref WindowsInstance
+
+  WindowsInstancePublicIP:
+    Description: The public IP of the Windows EC2 instance
+    Value: !Sub "${WindowsInstance.PublicIp}"
+
+  WindowsInstanceSecurityGroupIds:
+    Description: Security Group IDs assigned to the Windows instance
+    Value: !Join [", ", !Ref SecurityGroupIds]
